@@ -43,7 +43,7 @@ options.maxFunEvals = 1e6;
 options.Method = 'lbfgs';
 
 %% run training
-[opt_params,opt_value,exitflag,output] = minFunc(@supervised_dnn_cost,...
+[opt_params,opt_value,exitflag,output] = minFunc(@supervised_dnn_cost2,...
     params,options,ei, data_train, labels_train);
 
 %% compute accuracy on the test and train set

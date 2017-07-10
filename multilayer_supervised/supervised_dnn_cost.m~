@@ -15,12 +15,14 @@ stack = params2stack(theta, ei);
 numHidden = numel(ei.layer_sizes) - 1;
 hAct = cell(numHidden+1, 1);
 gradStack = cell(numHidden+1, 1);
+pred_prob = zeros(size(data,2),ei.output_dim);
 
 %% aux functions
 sigmoid = @(x)1./(1+exp(-x));
 smax = @(x)bsxfun(@rdivide,exp(x),sum(exp(x)));
 
 %% forward prop
+numInstances = size(data,2);
 hAct{1} = sigmoid(bsxfun(@plus,data'*stack{1}.W',stack{1}.b')); %input layer
 for l = 2 : length(stack)-1 % hidden layers excl. softmax
     hAct{l} = sigmoid(bsxfun(@plus,hAct{l-1}*stack{l}.W',stack{l}.b'));
@@ -33,7 +35,6 @@ pred_prob = hAct{end};
 if po
   cost = -1; %ceCost = -1; wCost = -1; numCorrect = -1;
   grad = [];  
-  pred_prob = pred_prob';
   return;
 end;
 
@@ -41,7 +42,7 @@ end;
 I = sub2ind(size(pred_prob),1:size(pred_prob,1)',labels');
 p = pred_prob(I);
 lp = log(p);
-ceCost = -sum(lp);
+cost = -sum(lp);
   
 %% compute gradients using backpropagation
 % softmax layer
@@ -49,27 +50,18 @@ S = zeros(size(pred_prob));
 S(I) = 1;
 P = S-pred_prob;
 errTerm = cell(length(gradStack),1);
-errTerm{end} = -P';
-gradStack{end}.W = errTerm{end}*hAct{end-1};
-gradStack{end}.b = mean(errTerm{end},2);
+errTerm{end} = (P.*(hAct{end}.*(1-hAct{end})))';
 for i = length(errTerm)-1 : -1 : 1
     errTerm{i} = ((stack{i+1}.W'*errTerm{i+1}).*(hAct{i}.*(1-hAct{i}))');
+    gradStack{i}.b = errTerm{i};
     if i > 1
         gradStack{i}.W = errTerm{i}*hAct{i-1};
-    else
-        gradStack{1}.W = errTerm{1}*data';
     end
-    gradStack{i}.b = mean(errTerm{i},2);
 end
-
+gradStack{1}.W = errTerm{1}*data';
+gradStack{1}.b = mean(errTerm{1});
 %% compute weight penalty cost and gradient for non-bias terms
 %%% YOUR CODE HERE %%%
-wCost = 0;
-for l = 1:numHidden+1
-    wCost = wCost + .5 * ei.lambda * sum(stack{l}.W(:).^2);
-end
-cost = ceCost + wCost;
-pred_prob = pred_prob';
 
 %% reshape gradients into vector
 [grad] = stack2params(gradStack);

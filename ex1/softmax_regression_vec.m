@@ -23,9 +23,7 @@ function [f,g] = softmax_regression_vec(theta, X,y)
   P = bsxfun(@rdivide,exp(tx),sum(exp(tx)));
   lP = log(P);
   I = sub2ind(size(lP),y,1:size(lP,2));
-  p = lP(I);
-  p = p(y<10);
-  f = -sum(p);
+
   
 
   S = zeros(size(P));
