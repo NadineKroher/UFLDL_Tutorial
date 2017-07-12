@@ -1,4 +1,4 @@
-function [cost, grad, preds] = cnnCost(theta,images,labels,numClasses,...
+function [cost, grad, preds] = cnnCost2(theta,images,labels,numClasses,...
                                 filterDim,numFilters,poolDim,pred)
 % Calcualte cost and gradient for a single layer convolutional
 % neural network followed by a softmax layer with cross entropy
@@ -43,9 +43,9 @@ numImages = size(images,3); % number of images
 
 % Same sizes as Wc,Wd,bc,bd. Used to hold gradient w.r.t above params.
 Wc_grad = zeros(size(Wc));
-%Wd_grad = zeros(size(Wd));
+Wd_grad = zeros(size(Wd));
 bc_grad = zeros(size(bc));
-%bd_grad = zeros(size(bd));
+bd_grad = zeros(size(bd));
 
 %%======================================================================
 %% STEP 1a: Forward Propagation
@@ -63,14 +63,20 @@ bc_grad = zeros(size(bc));
 %  backpropagation.
 convDim = imageDim-filterDim+1; % dimension of convolved output
 outputDim = (convDim)/poolDim; % dimension of subsampled output
+
 % convDim x convDim x numFilters x numImages tensor for storing activations
-%activations = zeros(convDim,convDim,numFilters,numImages);
-activations = cnnConvolve(filterDim, numFilters, images, Wc, bc);
+activations = zeros(convDim,convDim,numFilters,numImages);
+
 % outputDim x outputDim x numFilters x numImages tensor for storing
 % subsampled activations
-%activationsPooled = zeros(outputDim,outputDim,numFilters,numImages);
-activationsPooled = cnnPool(poolDim, activations);
+activationsPooled = zeros(outputDim,outputDim,numFilters,numImages);
+
 %%% YOUR CODE HERE %%%
+
+activationType = 'sigmoid';
+
+activations = cnnConvolve(filterDim, numFilters, images, Wc, bc);
+activationsPooled = cnnPool(poolDim, activations);
 
 % Reshape activations into 2-d matrix, hiddenSize x numImages,
 % for Softmax layer
@@ -84,23 +90,38 @@ activationsPooled = reshape(activationsPooled,[],numImages);
 
 % numClasses x numImages for storing probability that each image belongs to
 % each class.
-%probs = zeros(numClasses,numImages);
-smax = @(x)bsxfun(@rdivide,exp(x),sum(exp(x))); % softmax function
-probs = (smax((bsxfun(@plus,activationsPooled'*Wd',bd')')));
+probs = zeros(numClasses,numImages);
 
+%%% YOUR CODE HERE %%%
+activationsSoftmax = exp(bsxfun(@plus, Wd * activationsPooled, bd));
+probs = bsxfun(@rdivide, activationsSoftmax, sum(activationsSoftmax, 1));
 
 %%======================================================================
 %% STEP 1b: Calculate Cost
 %  In this step you will use the labels given as input and the probs
-%  calculated above to evaluate the cross entropy objective.  Store your
+%  calculate above to evaluate the cross entropy objective.  Store your
 %  results in cost.
 
-% cost = 0; % save objective into cost
+cost = 0; % save objective into cost
 
-I = sub2ind(size(probs),labels',1:size(probs,2));
-p = probs(I);
-lp = log(p);
-cost = -sum(lp) / numImages;
+%%% YOUR CODE HERE %%%
+loss = log(probs);
+idx = sub2ind(size(loss), labels', 1:numImages);
+cost = -sum(loss(idx)) / numImages; 
+
+% Marvin Luo's experiments notes on NN and CNN:
+% * It seems that when the cost is divided by numImages could cause a lot
+% more evaluations in each iteration of gradient descent. However, the
+% evaluations become the same as before if the error in the output layer is
+% also divided by the numImages. What's more, it seems that this even
+% faster than not dividing numImages at all.
+% * Should divide numImages, or cost will be NaN.
+% * When using relu, gradient of bc is not correct. Don't know why yet.
+%
+%           Accuracy   Time
+% relu      
+% sigmoid   0.97100
+
 
 % Makes predictions given probs and returns without backproagating errors.
 if pred
@@ -120,21 +141,35 @@ end;
 %  Use the kron function and a matrix of ones to do this upsampling 
 %  quickly.
 
-S = zeros(size(probs));
-S(I) = 1;
-errDense = (probs-S) / numImages;%'*Wd;
-errDenseRS = reshape((errDense'*Wd)',outputDim,outputDim,numFilters,numImages);
-errConv = zeros(convDim,convDim,numFilters,numImages);
-for i = 1 : numImages
-    for j = 1 : numFilters
-        delta = errDenseRS(:,:,j,i);
-        deltaPool = (1/poolDim^2).*kron(delta, ones(poolDim,poolDim));
-        err = deltaPool.*activations(:,:,j,i).*(1-activations(:,:,j,i));
-        errConv(:,:,j,i) = err;%rot90(err,2);
+%%% YOUR CODE HERE %%%
+
+ground_truth = zeros(size(probs));
+ground_truth(idx) = 1;
+gradZ = (probs - ground_truth) / numImages; 
+
+Wd_grad = gradZ * activationsPooled';
+bd_grad = sum(gradZ, 2);
+
+gradActPool = Wd' * gradZ;
+gradActPool = reshape(gradActPool, outputDim, outputDim, numFilters, numImages);
+gradAct = zeros(convDim, convDim, numFilters, numImages);
+gradZc = gradAct;
+Wc_grad_temp = zeros(filterDim, filterDim, numFilters, numImages);
+unpoolingFilter = ones(poolDim, poolDim) / (poolDim ^ 2);
+for i = 1:numImages
+    for f = 1:numFilters
+        gradAct(:,:, f, i) = kron(gradActPool(:,:, f, i), unpoolingFilter);
+        switch activationType
+            case 'relu'
+                gradZc(:,:, f, i) = gradAct(:,:, f, i) .* (activations(:,:, f, i) > 0);
+            case 'sigmoid'
+                gradZc(:,:, f, i) = gradAct(:,:, f, i) .* activations(:,:, f, i) .* (1 - activations(:,:, f, i));
+        end
+        Wc_grad_temp(:,:, f, i) = conv2(images(:,:,i), rot90(gradZc(:,:,f,i),2), 'valid');
     end
 end
-
-%% TO DO: convolution and pooling layer
+bc_grad = sum(sum(sum(gradZc, 4)));
+Wc_grad = sum(Wc_grad_temp, 4);
 
 %%======================================================================
 %% STEP 1d: Gradient Calculation
@@ -144,21 +179,8 @@ end
 %  a filter in the convolutional layer, convolve the backpropagated error
 %  for that filter with each image and aggregate over images.
 
-Wd_grad = errDense*activationsPooled';
-bd_grad = sum(errDense,2);
+%%% YOUR CODE HERE %%%
 
-for numFilter = 1 : numFilters
-    for numImage = 1 : numImages
-        im = squeeze(images(:,:,numImage));
-        filter = errConv(:,:,numFilter,numImage);
-        bc_grad(numFilter) = bc_grad(numFilter) + sum(sum(filter));
-        filter = rot90(filter,2);
-        newErr = conv2(im,filter,'valid');
-        Wc_grad(:,:,numFilter) = Wc_grad(:,:,numFilter) + newErr;
-        
-    end
-     
-end
 %% Unroll gradient into grad vector for minFunc
 grad = [Wc_grad(:) ; Wd_grad(:) ; bc_grad(:) ; bd_grad(:)];
 
