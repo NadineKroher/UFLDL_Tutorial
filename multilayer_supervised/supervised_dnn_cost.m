@@ -19,11 +19,25 @@ gradStack = cell(numHidden+1, 1);
 %% aux functions
 sigmoid = @(x)1./(1+exp(-x));
 smax = @(x)bsxfun(@rdivide,exp(x),sum(exp(x)));
+tanh = @(x)(exp(x)-exp(-x))./(exp(x)+exp(-x));
+relu = @(x)max(0,x);
 
 %% forward prop
-hAct{1} = sigmoid(bsxfun(@plus,data'*stack{1}.W',stack{1}.b')); %input layer
+switch ei.activation_fun
+    case 'logistic'
+        actFun = sigmoid;
+    case 'tanh'
+        actFun = tanh;
+    case 'relu'
+        actFun = relu;
+    otherwise
+        disp('unknown activation function, using logistic...')
+        actFun = sigmoid;
+end
+
+hAct{1} = actFun(bsxfun(@plus,data'*stack{1}.W',stack{1}.b')); %input layer
 for l = 2 : length(stack)-1 % hidden layers excl. softmax
-    hAct{l} = sigmoid(bsxfun(@plus,hAct{l-1}*stack{l}.W',stack{l}.b'));
+    hAct{l} = actFun(bsxfun(@plus,hAct{l-1}*stack{l}.W',stack{l}.b'));
 end
 % softmax layer
 hAct{end} = smax(bsxfun(@plus,hAct{end-1}*stack{end}.W',stack{end}.b')')';
@@ -52,6 +66,7 @@ errTerm = cell(length(gradStack),1);
 errTerm{end} = -P';
 gradStack{end}.W = errTerm{end}*hAct{end-1};
 gradStack{end}.b = mean(errTerm{end},2);
+% hidden layers
 for i = length(errTerm)-1 : -1 : 1
     errTerm{i} = ((stack{i+1}.W'*errTerm{i+1}).*(hAct{i}.*(1-hAct{i}))');
     if i > 1
