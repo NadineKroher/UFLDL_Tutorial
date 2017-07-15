@@ -6,7 +6,7 @@
 %  You do not need to change the code below.
 
 addpath(genpath('../common'))
-x = loadMNISTImages('../common/train-images-idx3-ubyte');
+x = loadMNISTImages('../common/t10k-images-idx3-ubyte');
 figure('name','Raw images');
 randsel = randi(size(x,2),200,1); % A random selection of samples for visualization
 display_network(x(:,randsel));
@@ -16,8 +16,7 @@ minVarRet = 0.99; % Set here the desired percentage of retained variance
 %%================================================================
 %% Step 0b: Zero-mean the data (by row)
 %  You can make use of the mean and repmat/bsxfun functions.
-avg = mean(x,1);
-x = x - repmat(avg,size(x,1),1);
+xNorm = x - repmat(mean(x),size(x,1),1);
 
 
 %%================================================================
@@ -25,7 +24,7 @@ x = x - repmat(avg,size(x,1),1);
 %  Implement PCA to obtain xRot, the matrix in which the data is expressed
 %  with respect to the eigenbasis of sigma, which is the matrix U.
 
-sigma = x * x' / size(x,2);
+sigma = xNorm * xNorm' / size(x,2);
 [U,S,~] = svd(sigma);
 xRot = U'*xNorm;
 
@@ -38,7 +37,7 @@ xRot = U'*xNorm;
 %  When visualised as an image, you should see a straight line across the
 %  diagonal (non-zero entries) against a blue background (zero entries).
 
-covar = xRot * xRot' / size(x,2);
+covar = xRot * xRot' / size(xRot,2);
 
 % Visualise the covariance matrix. You should see a line across the
 % diagonal against a blue background.
@@ -52,6 +51,7 @@ imagesc(covar);
 
 k = size(covar,1);
 varRet = 1.0;
+%
 total = sum(sum(covar));
 while varRet >= minVarRet
     k = k-1;
@@ -72,8 +72,7 @@ end
 %  there is little loss due to throwing away the principal components that
 %  correspond to dimensions with low variation.
 
-xHat = U(:, 1:k)' * x; 
-xHat = U(:, 1:k) * xHat;  
+xHat = U*[xRot(1:k,:);zeros(size(U,1)-k,size(x,2))];
 
 
 % Visualise the data, and compare it to the raw data
@@ -91,7 +90,7 @@ display_network(x(:,randsel));
 %  Implement PCA with whitening and regularisation to produce the matrix
 %  xPCAWhite. 
 
-epsilon = 1e-10; 
+epsilon = 1e-1; 
 xPCAwhite = diag(1./sqrt(diag(S)+epsilon)) * U' * x;
 
 %% Step 4b: Check your implementation of PCA whitening 
@@ -127,6 +126,6 @@ xZCAwhite = U * diag(1./sqrt(diag(S) + epsilon)) * U' * x;
 % Visualise the data, and compare it to the raw data.
 % You should observe that the whitened images have enhanced edges.
 figure('name','ZCA whitened images');
-display_network(xZCAwhite(:,randsel));
+display_network(xZCAhite(:,randsel));
 figure('name','Raw images');
 display_network(x(:,randsel));
