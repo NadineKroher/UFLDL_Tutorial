@@ -1,4 +1,3 @@
-clear all;
 %% CS294A/CS294W Self-taught Learning Exercise
 
 %  Instructions
@@ -80,8 +79,8 @@ patches = samplePatches([unlabeledData,trainData],params.patchWidth,200000);
 %configure minFunc
 options.Method = 'lbfgs';
 options.MaxFunEvals = Inf;
-options.MaxIter = 1000;
-%options.MaxIter = 10; % for faster debugging
+%options.MaxIter = 1000;
+options.MaxIter = 10; % for faster debugging
 %options.outputFcn = @showBases;
 
 % You'll need to replace this line with RICA training code
@@ -143,7 +142,8 @@ options.MaxIter = 300;
 
 % optimize
 optTheta2 = minFunc(@softmax_regression_vec, randTheta2, options, trainFeatures, trainLabels);
-optTheta2 = reshape(optTheta2,featureSize,numClasses);
+optTheta2 = [optTheta,zeros(featureSize,1)];
+optTheta2 = reshape(optTheta2,featureSize,1); 
 %%======================================================================
 %% STEP 5: Testing 
 % Compute Predictions on tran and test sets using softmaxPredict

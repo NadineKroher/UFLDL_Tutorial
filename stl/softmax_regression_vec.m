@@ -30,7 +30,6 @@ function [f,g] = softmax_regression_vec(theta, X,y)
   S(I) = 1;
   P = S-P;
   g = -X*P';
-  g(:,10) = [];
+  g(:,num_classes) = [];
   g=g(:); 
-  
 

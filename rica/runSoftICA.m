@@ -1,6 +1,5 @@
-%% We will use minFunc for this exercise, but you can use your
+% We will use minFunc for this exercise, but you can use your
 % own optimizer of choice
-clear all;
 addpath(genpath('../common/')) % path to minfunc
 %% These parameters should give you sane results. We recommend experimenting
 % with these values after you have a working solution.

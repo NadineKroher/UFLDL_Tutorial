@@ -1,4 +1,4 @@
-function average_error = grad_check(fun, theta0, num_checks, X, y)
+function average_error = grad_check(fun, theta0, num_checks, x, params)
 
   delta=1e-3; 
   sum_error=0;
@@ -12,9 +12,9 @@ function average_error = grad_check(fun, theta0, num_checks, X, y)
     T0=T; T0(j) = T0(j)-delta;
     T1=T; T1(j) = T1(j)+delta;
 
-    [f,g] = fun(T, X, y);
-    f0 = fun(T0, X, y);
-    f1 = fun(T1, X, y);
+    [f,g] = fun(T, x,params);
+    f0 = fun(T0, x,params);
+    f1 = fun(T1, x,params);
 
     g_est = (f1-f0) / (2*delta);
     error = abs(g(j) - g_est);
